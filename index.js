@@ -59,31 +59,56 @@ function callSendAPI(sender_psid, response) {
 // Handle messages
 function handleMessage(sender_psid, received_message) {
   let response;
+  const message = received_message.text.toLowerCase();
 
-  if (received_message.text) {
-    const userText = received_message.text.toLowerCase();
-
-    if (
-      userText.includes("msc") &&
-      (userText.includes("crew") ||
-       userText.includes("apply") ||
-       userText.trim() === "msc")
-    ) {
-      response = {
-        text: `Interested in joining MSC Cruises as crew? 🚢  
+  if (message.includes("msc") || message.includes("cruise")) {
+    response = {
+      text: `Interested in joining MSC Cruises as crew? 🚢  
 Just fill out this short form to register!👇  
 MSCクルーズのクルーに興味がありますか？🌊  
 簡単な登録フォームはこちらからどうぞ👇  
 https://airtable.com/appODQ53LeZaz8bgj/pagGGwD7IdGwlVSlE/form/`
-      };
-    } else {
-      response = { text: `You said: "${received_message.text}"` };
-    }
+    };
+  } else if (
+    message.includes("apply") ||
+    message.includes("how to apply") ||
+    message.includes("応募") ||
+    message.includes("申し込み")
+  ) {
+    response = {
+      text: `📝 Here's how to apply for jobs with us:
+1. Visit: https://horizonjapan.softr.app/
+2. Select the job you're interested in
+3. Fill out the application form
+📝 応募方法：
+1. サイトへアクセス：https://horizonjapan.softr.app/
+2. 応募したい仕事を選ぶ
+3. 応募フォームに記入してください`
+    };
+  } else if (
+    message.includes("job") ||
+    message.includes("openings") ||
+    message.includes("求人") ||
+    message.includes("募集")
+  ) {
+    response = {
+      text: `💼 We currently have several job openings! View them here:
+💼 現在、さまざまな求人があります！こちらからご覧いただけます：
+➡️ https://horizonjapan.softr.app/`
+    };
+  } else if (message.includes("help") || message.includes("support")) {
+    response = {
+      text: `🆘 How can I help you?
+🆘 どのようにお手伝いできますか？`
+    };
+  } else {
+    response = {
+      text: `🤖 You said: "${received_message.text}"`
+    };
   }
 
   callSendAPI(sender_psid, response);
 }
-
 
 // Handle postbacks
 function handlePostback(sender_psid, received_postback) {
