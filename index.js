@@ -9,6 +9,9 @@ app.use(bodyParser.json());
 const PAGE_ACCESS_TOKEN = process.env.PAGE_ACCESS_TOKEN;
 const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
 
+const HUMAN_KEYWORDS = ["hello", "hi", "good day", "konnichiwa"];
+const humanPausedUsers = new Map();
+
 // Webhook verification
 app.get("/webhook", (req, res) => {
   const mode = req.query["hub.mode"];
@@ -32,8 +35,14 @@ app.post("/webhook", (req, res) => {
       const webhook_event = entry.messaging[0];
       const sender_psid = webhook_event.sender.id;
 
+      if (isBotPaused(sender_psid)) return;
+
       if (webhook_event.message) {
-        handleMessage(sender_psid, webhook_event.message);
+        if (detectHumanMessage(webhook_event.message.text)) {
+          pauseBotForUser(sender_psid);
+        } else {
+          handleMessage(sender_psid, webhook_event.message);
+        }
       } else if (webhook_event.postback) {
         handlePostback(sender_psid, webhook_event.postback);
       }
@@ -43,6 +52,25 @@ app.post("/webhook", (req, res) => {
     res.sendStatus(404);
   }
 });
+
+function isBotPaused(sender_psid) {
+  const timeout = humanPausedUsers.get(sender_psid);
+  if (!timeout) return false;
+  if (Date.now() > timeout) {
+    humanPausedUsers.delete(sender_psid);
+    return false;
+  }
+  return true;
+}
+
+function pauseBotForUser(sender_psid) {
+  humanPausedUsers.set(sender_psid, Date.now() + 3600000); // 1 hour pause
+  console.log(`Bot paused for user ${sender_psid} for 1 hour.`);
+}
+
+function detectHumanMessage(text = "") {
+  return HUMAN_KEYWORDS.some(keyword => text.toLowerCase().includes(keyword));
+}
 
 // Send text message
 function callSendAPI(sender_psid, response) {
@@ -63,11 +91,7 @@ function handleMessage(sender_psid, received_message) {
 
   if (message.includes("msc") || message.includes("cruise")) {
     response = {
-      text: `Interested in joining MSC Cruises as crew? 🚢  
-Just fill out this short form to register!👇  
-MSCクルーズのクルーに興味がありますか？🌊  
-簡単な登録フォームはこちらからどうぞ👇  
-https://airtable.com/appODQ53LeZaz8bgj/pagGGwD7IdGwlVSlE/form/`
+      text: `Interested in joining MSC Cruises as crew? 🚢\nJust fill out this short form to register!👇\nMSCクルーズのクルーに興味がありますか？🌊\n簡単な登録フォームはこちらからどうぞ👇\nhttps://airtable.com/appODQ53LeZaz8bgj/pagGGwD7IdGwlVSlE/form/`
     };
   } else if (
     message.includes("apply") ||
@@ -76,14 +100,7 @@ https://airtable.com/appODQ53LeZaz8bgj/pagGGwD7IdGwlVSlE/form/`
     message.includes("申し込み")
   ) {
     response = {
-      text: `📝 Here's how to apply for jobs with us:
-1. Visit: https://horizonjapan.softr.app/
-2. Select the job you're interested in
-3. Fill out the application form
-📝 応募方法：
-1. サイトへアクセス：https://horizonjapan.softr.app/
-2. 応募したい仕事を選ぶ
-3. 応募フォームに記入してください`
+      text: `📝 Here's how to apply for jobs with us:\n1. Visit: https://horizonjapan.softr.app/\n2. Select the job you're interested in\n3. Fill out the application form\n📝 応募方法：\n1. サイトへアクセス：https://horizonjapan.softr.app/\n2. 応募したい仕事を選ぶ\n3. 応募フォームに記入してください`
     };
   } else if (
     message.includes("job") ||
@@ -92,18 +109,15 @@ https://airtable.com/appODQ53LeZaz8bgj/pagGGwD7IdGwlVSlE/form/`
     message.includes("募集")
   ) {
     response = {
-      text: `💼 We currently have several job openings! View them here:
-💼 現在、さまざまな求人があります！こちらからご覧いただけます：
-➡️ https://horizonjapan.softr.app/`
+      text: `💼 We currently have several job openings! View them here:\n💼 現在、さまざまな求人があります！こちらからご覧いただけます：\n➡️ https://horizonjapan.softr.app/`
     };
   } else if (message.includes("help") || message.includes("support")) {
     response = {
-      text: `🆘 How can I help you?
-🆘 どのようにお手伝いできますか？`
+      text: `🆘 How can I help you?\n🆘 どのようにお手伝いできますか？`
     };
   } else {
     response = {
-      text: `🤖 You said: "${received_message.text}"`
+      text: `🤖 You said: \"${received_message.text}\"`
     };
   }
 
@@ -112,26 +126,48 @@ https://airtable.com/appODQ53LeZaz8bgj/pagGGwD7IdGwlVSlE/form/`
 
 // Handle postbacks
 function handlePostback(sender_psid, received_postback) {
-  let response;
   const payload = received_postback.payload;
 
   if (payload === "GET_STARTED") {
-    response = { text: `Thanks for messaging us!🙌
-Our team will reply soon.
-メッセージありがとうございます！🙌
-担当者よりすぐにご連絡いたします。` };
-  } else if (payload === "JOB_OPENING") {
-    response = { text: `Feel free to visit our website to check out the latest job openings!
-最新の募集情報はこちらのウェブサイトでチェックしてくださいね！
-https://horizonjapan.softr.app/` };
-  } else if (payload === "HELP") {
-    response = { text: "How can I help you?" };
-  }
+    const welcomeMessage = {
+      text: `Thanks for messaging us!🙌\nOur team will reply soon.\nメッセージありがとうございます！🙌\n担当者よりすぐにご連絡いたします。`
+    };
 
-  callSendAPI(sender_psid, response);
+    const quickReplyMessage = {
+      text: "How can I assist you today?\n本日どのようにお手伝いできますか？",
+      quick_replies: [
+        {
+          content_type: "text",
+          title: "✅ MSC Cruise Jobs",
+          payload: "MSC_CRUISE"
+        },
+        {
+          content_type: "text",
+          title: "📋 All Openings",
+          payload: "ALL_OPENINGS"
+        },
+        {
+          content_type: "text",
+          title: "📝 How to Apply",
+          payload: "HOW_TO_APPLY"
+        }
+      ]
+    };
+
+    callSendAPI(sender_psid, welcomeMessage);
+    setTimeout(() => {
+      callSendAPI(sender_psid, quickReplyMessage);
+    }, 1000);
+  } else if (payload === "JOB_OPENING") {
+    callSendAPI(sender_psid, {
+      text: `Feel free to visit our website to check out the latest job openings!\n最新の募集情報はこちらのウェブサイトでチェックしてくださいね！\nhttps://horizonjapan.softr.app/`
+    });
+  } else if (payload === "HELP") {
+    callSendAPI(sender_psid, { text: "How can I help you?" });
+  }
 }
 
-// Add persistent menu
+// Set persistent menu
 function setPersistentMenu() {
   const menuData = {
     persistent_menu: [
@@ -167,7 +203,7 @@ function setPersistentMenu() {
   };
 
   axios.post(`https://graph.facebook.com/v18.0/me/messenger_profile?access_token=${PAGE_ACCESS_TOKEN}`, menuData)
-    .then(() => console.log("Persistent menu set!"))
+    .then(() => console.log("✅Persistent menu set!"))
     .catch(err => console.error("Menu error:", err.response.data));
 }
 
@@ -181,23 +217,20 @@ function setGetStartedButton() {
 
   axios.post(`https://graph.facebook.com/v18.0/me/messenger_profile?access_token=${PAGE_ACCESS_TOKEN}`, getStartedData)
     .then(() => {
-      console.log("Get Started button set!");
-      // After setting up Get Started, set the Persistent Menu
+      console.log("✅Get Started button set!");
       setPersistentMenu();
     })
     .catch(err => console.error("Error configuring Get Started button:", err.response.data));
 }
 
-// Check if the Get Started button and Persistent Menu are set
+// Initial setup
 function checkAndSetup() {
   axios.get(`https://graph.facebook.com/v18.0/me/messenger_profile?access_token=${PAGE_ACCESS_TOKEN}`)
     .then(response => {
       const data = response.data;
       if (!data.data || !data.data.some(profile => profile.get_started)) {
-        // If Get Started button is not set, set it
         setGetStartedButton();
       } else {
-        // If it's already set, set the Persistent Menu
         setPersistentMenu();
       }
     })
@@ -207,7 +240,6 @@ function checkAndSetup() {
     });
 }
 
-// Run the checkAndSetup once, then start the server
 checkAndSetup();
 
 app.listen(3000, () => {
