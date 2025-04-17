@@ -73,7 +73,7 @@ function handleMessage(sender_psid, received_message) {
     callSendAPI(sender_psid, { text: "🆘 How can I help you?\n🆘 どのようにお手伝いできますか？" });
   } else {
     callSendAPI(sender_psid, {
-      text: "One of our team members will be with you shortly.",
+      text: "🤖 One of our team members will be with you shortly.",
       quick_replies: [
         { content_type: "text", title: "MSC Cruise Jobs", payload: "MSC" },
         { content_type: "text", title: "Current Job Opening", payload: "JOB_OPENING" },
@@ -109,7 +109,7 @@ function handlePostback(sender_psid, received_postback) {
     });
   } else if (payload === "MSC_YES") {
     callSendAPI(sender_psid, {
-      text: "Have you ever worked on a cruise ship before?",
+      text: "🤖 Have you ever worked on a cruise ship before?",
       quick_replies: [
         { content_type: "text", title: "Yes", payload: "WORKED_CRUISE_YES" },
         { content_type: "text", title: "No", payload: "WORKED_CRUISE_NO" }
@@ -117,7 +117,7 @@ function handlePostback(sender_psid, received_postback) {
     });
   } else if (payload === "WORKED_CRUISE_NO" || payload === "WORKED_CRUISE_YES") {
     callSendAPI(sender_psid, {
-      text: "Can you speak Japanese?",
+      text: "🤖 Can you speak Japanese?",
       quick_replies: [
         { content_type: "text", title: "Yes", payload: "JAPANESE_YES" },
         { content_type: "text", title: "No", payload: "JAPANESE_NO" }
