@@ -8,9 +8,12 @@ app.use(bodyParser.json());
 
 const PAGE_ACCESS_TOKEN = process.env.PAGE_ACCESS_TOKEN;
 const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
+
 const userFlags = new Map();
+const defaultReplyFlags = new Map();
 
 const HUMAN_KEYWORDS = ["hello", "good day", "konnichiwa"];
+const cooldownPeriod = 4 * 60 * 60 * 1000; // 4 hours cooldown
 
 function isHumanMessage(text) {
   const lower = text.toLowerCase();
@@ -27,24 +30,47 @@ function flagHumanInteraction(sender_psid) {
   userFlags.set(sender_psid, Date.now());
 }
 
-function callSendAPI(sender_psid, response) {
+// Upgraded callSendAPI with retry
+async function callSendAPI(sender_psid, response, retryCount = 0) {
   const request_body = {
     recipient: { id: sender_psid },
     message: response,
   };
-  axios.post(`https://graph.facebook.com/v18.0/me/messages?access_token=${PAGE_ACCESS_TOKEN}`, request_body)
-    .then(() => console.log("Message sent!"))
-    .catch(err => console.error("Unable to send message:" + err));
+
+  try {
+    await axios.post(`https://graph.facebook.com/v18.0/me/messages?access_token=${PAGE_ACCESS_TOKEN}`, request_body);
+    console.log("✅ Message sent to PSID:", sender_psid);
+  } catch (error) {
+    console.error(`❌ Unable to send message to PSID ${sender_psid}:`, error.response?.data || error.message);
+
+    if (retryCount < 3) {
+      console.log(`🔄 Retrying... Attempt ${retryCount + 1}`);
+      setTimeout(() => {
+        callSendAPI(sender_psid, response, retryCount + 1);
+      }, 1000 * (retryCount + 1)); // 1s, 2s, 3s delay
+    } else {
+      console.error("🚨 Max retries reached. Giving up.");
+    }
+  }
 }
 
 function handleMessage(sender_psid, received_message) {
   const message = received_message.text?.toLowerCase() || "";
+
   if (isHumanMessage(message)) {
     flagHumanInteraction(sender_psid);
     return;
   }
 
   if (!hasHumanTimeoutExpired(sender_psid)) return;
+
+  const resetKeywords = ["msc cruise jobs", "current job opening", "how to apply", "help"];
+  const isQuickReply = resetKeywords.some(keyword => message.includes(keyword));
+
+  if (isQuickReply) {
+    console.log(`🔄 Resetting default reply cooldown for ${sender_psid}`);
+    defaultReplyFlags.delete(sender_psid);
+  }
 
   if (message.includes("msc")) {
     callSendAPI(sender_psid, {
@@ -72,14 +98,21 @@ function handleMessage(sender_psid, received_message) {
   } else if (message.includes("help")) {
     callSendAPI(sender_psid, { text: "🆘 How can I help you?\n🆘 どのようにお手伝いできますか？" });
   } else {
-    callSendAPI(sender_psid, {
-      text: "🤖 One of our team members will be with you shortly.",
-      quick_replies: [
-        { content_type: "text", title: "MSC Cruise Jobs", payload: "MSC" },
-        { content_type: "text", title: "Current Job Opening", payload: "JOB_OPENING" },
-        { content_type: "text", title: "How to Apply", payload: "HOW_TO_APPLY" }
-      ]
-    });
+    const lastDefaultReply = defaultReplyFlags.get(sender_psid);
+
+    if (!lastDefaultReply || Date.now() - lastDefaultReply > cooldownPeriod) {
+      callSendAPI(sender_psid, {
+        text: "🤖 One of our team members will be with you shortly.",
+        quick_replies: [
+          { content_type: "text", title: "MSC Cruise Jobs", payload: "MSC" },
+          { content_type: "text", title: "Current Job Opening", payload: "JOB_OPENING" },
+          { content_type: "text", title: "How to Apply", payload: "HOW_TO_APPLY" }
+        ]
+      });
+      defaultReplyFlags.set(sender_psid, Date.now());
+    } else {
+      console.log(`⌛ Default reply recently sent to ${sender_psid}, skipping.`);
+    }
   }
 }
 
@@ -154,7 +187,7 @@ function handlePostback(sender_psid, received_postback) {
 3. 応募フォームに記入してください`
     });
   } else if (payload === "CONTACT_SUPPORT") {
-    callSendAPI(sender_psid, { text: "One of our team members will be with you shortly." });
+    callSendAPI(sender_psid, { text: "🤖 One of our team members will be with you shortly." });
   }
 }
 
@@ -165,28 +198,10 @@ function setPersistentMenu() {
         locale: "default",
         composer_input_disabled: false,
         call_to_actions: [
-          {
-            type: "postback",
-            title: "Current Job Openings",
-            payload: "JOB_OPENING"
-          },
-          {
-            type: "web_url",
-            title: "MSC Cruise Application",
-            url: "https://airtable.com/appODQ53LeZaz8bgj/pagGGwD7IdGwlVSlE/form",
-            webview_height_ratio: "full"
-          },
-          {
-            type: "web_url",
-            title: "Visit Website",
-            url: "https://horizonjapan.softr.app/",
-            webview_height_ratio: "full"
-          },
-          {
-            type: "postback",
-            title: "Help",
-            payload: "HELP"
-          }
+          { type: "postback", title: "Current Job Openings", payload: "JOB_OPENING" },
+          { type: "web_url", title: "MSC Cruise Application", url: "https://airtable.com/appODQ53LeZaz8bgj/pagGGwD7IdGwlVSlE/form", webview_height_ratio: "full" },
+          { type: "web_url", title: "Visit Website", url: "https://horizonjapan.softr.app/", webview_height_ratio: "full" },
+          { type: "postback", title: "Help", payload: "HELP" }
         ]
       }
     ]
@@ -218,6 +233,7 @@ function checkAndSetup() {
     .catch(() => setGetStartedButton());
 }
 
+// --- Fixed immediate response ---
 app.get("/webhook", (req, res) => {
   const mode = req.query["hub.mode"];
   const token = req.query["hub.verify_token"];
@@ -232,6 +248,8 @@ app.get("/webhook", (req, res) => {
 
 app.post("/webhook", (req, res) => {
   if (req.body.object === "page") {
+    res.status(200).send("EVENT_RECEIVED");
+
     req.body.entry.forEach(entry => {
       const webhook_event = entry.messaging[0];
       const sender_psid = webhook_event.sender.id;
@@ -242,7 +260,6 @@ app.post("/webhook", (req, res) => {
         handlePostback(sender_psid, webhook_event.postback);
       }
     });
-    res.status(200).send("EVENT_RECEIVED");
   } else {
     res.sendStatus(404);
   }
