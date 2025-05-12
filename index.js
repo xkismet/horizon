@@ -43,6 +43,43 @@ async function callSendAPI(sender_psid, response, retryCount = 0) {
   }
 }
 
+const defaultReplies = {
+  msc: (sender_psid) => callSendAPI(sender_psid, {
+    text: `Interested in joining MSC Cruises as crew? 🚢
+MSCクルーズのクルーに興味がありますか？🌊`,
+    quick_replies: [
+      { content_type: "text", title: "Yes", payload: "MSC_YES" },
+      { content_type: "text", title: "No", payload: "MSC_NO" }
+    ]
+  }),
+  apply: (sender_psid) => callSendAPI(sender_psid, {
+    text: `📝 Here's how to apply for jobs with us:
+1. Visit: https://horizonjapan.softr.app/
+2. Select the job you're interested in
+3. Fill out the application form
+📝 応募方法：
+1. サイトへアクセス：https://horizonjapan.softr.app/
+2. 応募したい仕事を選ぶ
+3. 応募フォームに記入してください`
+  }),
+  job: (sender_psid) => callSendAPI(sender_psid, {
+    text: `💼 We currently have several job openings!
+💼 現在、さまざまな求人があります！
+➡️ https://horizonjapan.softr.app/`
+  }),
+  help: (sender_psid) => callSendAPI(sender_psid, {
+    text: `🆘 How can I help you?
+🆘 どのようにお手伝いできますか？`
+  }),
+  "pre-screening": (sender_psid) => callSendAPI(sender_psid, {
+    text: `To complete your pre-screening appointment, click below:
+事前面談のご予約はこちら：
+👉 https://calendar.google.com/calendar/u/0/appointments/AcZssZ1XWqZlSoUY8C4H7uB9w2Q-NU9fXJ5S7Spgmmc=
+
+ご不明な点がございましたら、お気軽にこちらのメッセージでお問い合わせください。`
+  })
+};
+
 function handleMessage(sender_psid, received_message) {
   const message = received_message.text?.toLowerCase() || "";
   const quick_reply_payload = received_message.quick_reply?.payload;
@@ -51,27 +88,7 @@ function handleMessage(sender_psid, received_message) {
   if (quick_reply_payload) return handleQuickReply(sender_psid, quick_reply_payload);
   if (!hasHumanTimeoutExpired(sender_psid)) return;
 
-  const defaultReplies = {
-    msc: () => callSendAPI(sender_psid, {
-      text: `Interested in joining MSC Cruises as crew? 🚢\nMSCクルーズのクルーに興味がありますか？🌊`,
-      quick_replies: [
-        { content_type: "text", title: "Yes", payload: "MSC_YES" },
-        { content_type: "text", title: "No", payload: "MSC_NO" }
-      ]
-    }),
-    apply: () => callSendAPI(sender_psid, {
-      text: `📝 Here's how to apply for jobs with us:\n1. Visit: https://horizonjapan.softr.app/\n2. Select the job you're interested in\n3. Fill out the application form\n📝 応募方法：\n1. サイトへアクセス：https://horizonjapan.softr.app/\n2. 応募したい仕事を選ぶ\n3. 応募フォームに記入してください`
-    }),
-    job: () => callSendAPI(sender_psid, {
-      text: `💼 We currently have several job openings!\n💼 現在、さまざまな求人があります！\n➡️ https://horizonjapan.softr.app/`
-    }),
-    help: () => callSendAPI(sender_psid, {
-      text: `🆘 How can I help you?\n🆘 どのようにお手伝いできますか？`
-    }),
-    "pre-screening": () => callSendAPI(sender_psid, {
-      text: `To complete your pre-screening appointment, click below:\n事前面談のご予約はこちら：\n👉 https://calendar.google.com/calendar/u/0/appointments/AcZssZ1XWqZlSoUY8C4H7uB9w2Q-NU9fXJ5S7Spgmmc=\n\nご不明な点がございましたら、お気軽にこちらのメッセージでお問い合わせください。`
-    })
-  };
+  
 
   for (const key in defaultReplies) {
     if (message.includes(key)) return defaultReplies[key]();
