@@ -87,11 +87,13 @@ MSCクルーズのクルーに興味がありますか？🌊`,
 
   "pre-screening": (sender_psid) =>
     callSendAPI(sender_psid, {
-      text: `To complete your pre-screening appointment, click below:
-事前面談のご予約はこちら：
+      text: `To complete your pre-screening appointment, please click the link below:
+事前面談のご予約は、以下のリンクからお進みください。
 👉 https://calendar.google.com/calendar/u/0/appointments/AcZssZ1XWqZlSoUY8C4H7uB9w2Q-NU9fXJ5S7Spgmmc=
 
-ご不明な点がございましたら、お気軽にこちらのメッセージでお問い合わせください。`,
+If you encounter any issues, feel free to message us here. We look forward to speaking with you!
+ご不明な点がございましたら、お気軽にこちらのメッセージでお問い合わせください。
+お話しできるのを楽しみにしております！`,
     }),
 };
 
@@ -108,10 +110,20 @@ function handleMessage(sender_psid, received_message) {
   if (quick_reply_payload) return handleQuickReply(sender_psid, quick_reply_payload);
   if (!hasHumanTimeoutExpired(sender_psid)) return;
 
-  for (const key in defaultReplies) {
-    if (message.includes(key)) return defaultReplies[key](sender_psid);
+  // ✅ Custom keyword checks
+  if (["apply", "how to apply", "応募", "申し込み"].some(k => message.includes(k))) {
+    return defaultReplies.apply(sender_psid);
   }
 
+  if (["job", "opening", "求人", "募集"].some(k => message.includes(k))) {
+    return defaultReplies.job(sender_psid);
+  }
+
+  if (["pre-screening", "prescreening", "pre screening", "pre-screening appointment"].some(k => message.includes(k))) {
+    return defaultReplies["pre-screening"](sender_psid);
+  }
+
+  // 🔁 Default fallback
   const lastReply = defaultReplyFlags.get(sender_psid);
   if (!lastReply || Date.now() - lastReply > cooldownPeriod) {
     callSendAPI(sender_psid, {
@@ -152,13 +164,36 @@ function handleQuickReply(sender_psid, payload) {
 
     JAPANESE_YES: () =>
       callSendAPI(sender_psid, {
-        text: `Great! Please register here:\nこちらからご登録ください：\n👉 https://airtable.com/appODQ53LeZaz8bgj/pagGGwD7IdGwlVSlE/form`,
+        text: `Just fill out this form to register!👇\n簡単な登録フォームはこちらからどうぞ👇\nhttps://airtable.com/appODQ53LeZaz8bgj/pagGGwD7IdGwlVSlE/form/`,
       }),
 
     JAPANESE_NO: () =>
       callSendAPI(sender_psid, {
-        text: `No worries! We have jobs for English speakers too.\n👉 https://horizonjapan.softr.app/`,
-      }),
+        attachment: {
+          type: "template",
+            payload: {
+        template_type: "button",
+        text: "No problem! Here are more ways we can help:",
+        buttons: [
+          {
+            type: "web_url",
+            url: "https://horizonjapan.softr.app/",
+            title: "🚀 View More Jobs"
+          },
+          {
+            type: "web_url",
+            url: "https://horizonjapan.softr.app/",
+            title: "🔗 Horizon Japan Website"
+          },
+          {
+            type: "postback",
+            title: "👩‍💼 Contact Support",
+            payload: "CONTACT_SUPPORT"
+          }
+        ]
+      }
+    }
+  }),
 
     MSC: () => steps.MSC_YES(),
     JOB_OPENING: () => defaultReplies.job(sender_psid),
@@ -182,12 +217,16 @@ Our team will reply soon.
 担当者よりすぐにご連絡いたします。`,
       quick_replies: [
         { content_type: "text", title: "MSC Cruise Jobs", payload: "MSC" },
-        { content_type: "text", title: "Current Job Opening", payload: "JOB_OPENING" },
+        { content_type: "text", title: "Current Job Openings", payload: "JOB_OPENING" },
         { content_type: "text", title: "How to Apply", payload: "HOW_TO_APPLY" },
         { content_type: "text", title: "Pre-Screening Appointment", payload: "PRE_SCREENING" },
       ],
     });
-  } else {
+  } else if (payload === "CONTACT_SUPPORT") {
+  callSendAPI(sender_psid, {
+    text: "🤖 One of our team members will be with you shortly."
+  });
+} else {
     handleQuickReply(sender_psid, payload);
   }
 }
