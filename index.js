@@ -145,7 +145,23 @@ function handleQuickReply(sender_psid, payload) {
 
 function handlePostback(sender_psid, received_postback) {
   const payload = received_postback.payload;
-  handleQuickReply(sender_psid, payload);
+
+  if (payload === "GET_STARTED") {
+    callSendAPI(sender_psid, {
+      text: "Thanks for messaging us!🙌
+Our team will reply soon.
+メッセージありがとうございます！🙌
+担当者よりすぐにご連絡いたします。",
+      quick_replies: [
+        { content_type: "text", title: "MSC Cruise Jobs", payload: "MSC" },
+        { content_type: "text", title: "Current Job Opening", payload: "JOB_OPENING" },
+        { content_type: "text", title: "How to Apply", payload: "HOW_TO_APPLY" },
+        { content_type: "text", title: "Pre-Screening Appointment", payload: "PRE_SCREENING" }
+      ]
+    });
+  } else {
+    handleQuickReply(sender_psid, payload);
+  }
 }
 
 function setPersistentMenu() {
@@ -205,7 +221,8 @@ app.post("/webhook", (req, res) => {
     res.sendStatus(200);
     req.body.entry.forEach(entry => {
       const event = entry.messaging[0];
-      const sender_psid = event.sender.id;
+      const sender_psid = event.sender?.id;
+      if (!sender_psid) return;
 
       if (event.pass_thread_control) {
         threadControlledByHuman.add(sender_psid);
