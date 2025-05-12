@@ -119,7 +119,7 @@ function handleMessage(sender_psid, received_message) {
     return defaultReplies.job(sender_psid);
   }
 
-  if (["pre-screening", "prescreening", "pre screening", "pre-screening appointment"].some(k => message.includes(k))) {
+  if (["pre-screening appointment", "prescreening appointment", "pre screening appointment"].some(k => message.includes(k))) {
     return defaultReplies["pre-screening"](sender_psid);
   }
 
