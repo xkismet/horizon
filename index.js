@@ -63,8 +63,7 @@ function handleMessage(sender_psid, received_message) {
 
   if (message.includes("msc")) {
     callSendAPI(sender_psid, {
-      text: "Interested in joining MSC Cruises as crew? 🚢
-MSCクルーズのクルーに興味がありますか？🌊",
+      $1$2
       quick_replies: [
         { content_type: "text", title: "Yes", payload: "MSC_YES" },
         { content_type: "text", title: "No", payload: "MSC_NO" }
@@ -88,8 +87,8 @@ MSCクルーズのクルーに興味がありますか？🌊",
 ➡️ https://horizonjapan.softr.app/`
     });
   } else if (message.includes("help")) {
-    callSendAPI(sender_psid, { text: "🆘 How can I help you?
-🆘 どのようにお手伝いできますか？" });
+    callSendAPI(sender_psid, { text: `$1
+$2` });
   } else if (message.includes("pre-screening")) {
     callSendAPI(sender_psid, {
       text: `To complete your pre-screening appointment, please click the link below:
@@ -339,24 +338,21 @@ function handleQuickReply(sender_psid, payload) {
 
     case "JAPANESE_YES":
       callSendAPI(sender_psid, {
-        text: "Great! Please register here:
-こちらからご登録ください：
-https://airtable.com/appODQ53LeZaz8bgj/pagGGwD7IdGwlVSlE/form"
+        text: `$1
+$2`
       });
       break;
 
     case "JAPANESE_NO":
       callSendAPI(sender_psid, {
-        text: "No worries! We have opportunities for English speakers too. Please check here:
-
-https://horizonjapan.softr.app/"
+        text: `$1
+$2`
       });
       break;
 
     case "MSC":
       callSendAPI(sender_psid, {
-        text: "Interested in joining MSC Cruises as crew? 🚢
-MSCクルーズのクルーに興味がありますか？🌊",
+        $1$2
         quick_replies: [
           { content_type: "text", title: "Yes", payload: "MSC_YES" },
           { content_type: "text", title: "No", payload: "MSC_NO" }
@@ -414,15 +410,13 @@ If you encounter any issues, feel free to message us here. We look forward to sp
     });
   } else if (payload === "JAPANESE_YES") {
     callSendAPI(sender_psid, {
-      text: "Great! Please register here:
-こちらからご登録ください：
-https://airtable.com/appODQ53LeZaz8bgj/pagGGwD7IdGwlVSlE/form"
+      text: `$1
+$2`
     });
   } else if (payload === "JAPANESE_NO") {
     callSendAPI(sender_psid, {
-      text: "No worries! We have opportunities for English speakers too. Please check here:
-
-https://horizonjapan.softr.app/"
+      text: `$1
+$2`
     });
   }
 }
