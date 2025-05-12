@@ -148,10 +148,10 @@ function handlePostback(sender_psid, received_postback) {
 
   if (payload === "GET_STARTED") {
     callSendAPI(sender_psid, {
-      text: "Thanks for messaging us!🙌
+      text: `Thanks for messaging us!🙌
 Our team will reply soon.
 メッセージありがとうございます！🙌
-担当者よりすぐにご連絡いたします。",
+担当者よりすぐにご連絡いたします。`,
       quick_replies: [
         { content_type: "text", title: "MSC Cruise Jobs", payload: "MSC" },
         { content_type: "text", title: "Current Job Opening", payload: "JOB_OPENING" },
