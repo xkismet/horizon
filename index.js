@@ -247,12 +247,6 @@ function setPersistentMenu() {
           },
           {
             type: "web_url",
-            title: "Pre-Screening Appointment",
-            url: "https://calendar.google.com/calendar/u/0/appointments/AcZssZ1XWqZlSoUY8C4H7uB9w2Q-NU9fXJ5S7Spgmmc=",
-            webview_height_ratio: "full",
-          },
-          {
-            type: "web_url",
             title: "Visit Website",
             url: "https://horizonjapan.softr.app/",
             webview_height_ratio: "full",
