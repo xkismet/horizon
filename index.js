@@ -11,14 +11,9 @@ const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
 
 const userFlags = new Map();
 const defaultReplyFlags = new Map();
+const threadControlledByHuman = new Set();
 
-const HUMAN_KEYWORDS = ["hello", "good day", "konnichiwa"];
-const cooldownPeriod = 4 * 60 * 60 * 1000; // 4 hours cooldown
-
-function isHumanMessage(text) {
-  const lower = text.toLowerCase();
-  return HUMAN_KEYWORDS.some(keyword => lower.includes(keyword));
-}
+const cooldownPeriod = 12 * 60 * 60 * 1000; // 12 hours cooldown
 
 function hasHumanTimeoutExpired(sender_psid) {
   const lastHuman = userFlags.get(sender_psid);
@@ -30,7 +25,6 @@ function flagHumanInteraction(sender_psid) {
   userFlags.set(sender_psid, Date.now());
 }
 
-// Upgraded callSendAPI with retry
 async function callSendAPI(sender_psid, response, retryCount = 0) {
   const request_body = {
     recipient: { id: sender_psid },
@@ -42,12 +36,9 @@ async function callSendAPI(sender_psid, response, retryCount = 0) {
     console.log("✅ Message sent to PSID:", sender_psid);
   } catch (error) {
     console.error(`❌ Unable to send message to PSID ${sender_psid}:`, error.response?.data || error.message);
-
     if (retryCount < 3) {
       console.log(`🔄 Retrying... Attempt ${retryCount + 1}`);
-      setTimeout(() => {
-        callSendAPI(sender_psid, response, retryCount + 1);
-      }, 1000 * (retryCount + 1)); // 1s, 2s, 3s delay
+      setTimeout(() => callSendAPI(sender_psid, response, retryCount + 1), 1000 * (retryCount + 1));
     } else {
       console.error("🚨 Max retries reached. Giving up.");
     }
@@ -57,20 +48,12 @@ async function callSendAPI(sender_psid, response, retryCount = 0) {
 function handleMessage(sender_psid, received_message) {
   const message = received_message.text?.toLowerCase() || "";
 
-  if (isHumanMessage(message)) {
-    flagHumanInteraction(sender_psid);
+  if (threadControlledByHuman.has(sender_psid)) {
+    console.log(`🤖 Skipping response for ${sender_psid} (thread controlled by human)`);
     return;
   }
 
   if (!hasHumanTimeoutExpired(sender_psid)) return;
-
-  const resetKeywords = ["msc cruise jobs", "current job opening", "how to apply", "help"];
-  const isQuickReply = resetKeywords.some(keyword => message.includes(keyword));
-
-  if (isQuickReply) {
-    console.log(`🔄 Resetting default reply cooldown for ${sender_psid}`);
-    defaultReplyFlags.delete(sender_psid);
-  }
 
   if (message.includes("msc")) {
     callSendAPI(sender_psid, {
@@ -97,40 +80,54 @@ function handleMessage(sender_psid, received_message) {
     });
   } else if (message.includes("help")) {
     callSendAPI(sender_psid, { text: "🆘 How can I help you?\n🆘 どのようにお手伝いできますか？" });
+  } else if (message.includes("pre-screening")) {
+    callSendAPI(sender_psid, {
+      text: `To complete your pre-screening appointment, please click the link below:
+事前面談のご予約は、以下のリンクからお進みください。
+👉 https://calendar.google.com/calendar/u/0/appointments/AcZssZ1XWqZlSoUY8C4H7uB9w2Q-NU9fXJ5S7Spgmmc=
+
+If you encounter any issues, feel free to message us here. We look forward to speaking with you!
+ご不明な点がございましたら、お気軽にこちらのメッセージでお問い合わせください。
+お話しできるのを楽しみにしております！`
+    });
   } else {
     const lastDefaultReply = defaultReplyFlags.get(sender_psid);
-
     if (!lastDefaultReply || Date.now() - lastDefaultReply > cooldownPeriod) {
       callSendAPI(sender_psid, {
         text: "🤖 One of our team members will be with you shortly.",
         quick_replies: [
           { content_type: "text", title: "MSC Cruise Jobs", payload: "MSC" },
           { content_type: "text", title: "Current Job Opening", payload: "JOB_OPENING" },
-          { content_type: "text", title: "How to Apply", payload: "HOW_TO_APPLY" }
+          { content_type: "text", title: "How to Apply", payload: "HOW_TO_APPLY" },
+          { content_type: "text", title: "Pre-Screening Appointment", payload: "PRE_SCREENING" }
         ]
       });
       defaultReplyFlags.set(sender_psid, Date.now());
-    } else {
-      console.log(`⌛ Default reply recently sent to ${sender_psid}, skipping.`);
     }
   }
 }
 
 function handlePostback(sender_psid, received_postback) {
   const payload = received_postback.payload;
-
   if (payload === "GET_STARTED") {
     callSendAPI(sender_psid, {
       text: `Thanks for messaging us!🙌\nOur team will reply soon.\nメッセージありがとうございます！🙌\n担当者よりすぐにご連絡いたします。`,
       quick_replies: [
         { content_type: "text", title: "MSC Cruise Jobs", payload: "MSC" },
         { content_type: "text", title: "Current Job Opening", payload: "JOB_OPENING" },
-        { content_type: "text", title: "How to Apply", payload: "HOW_TO_APPLY" }
+        { content_type: "text", title: "How to Apply", payload: "HOW_TO_APPLY" },
+        { content_type: "text", title: "Pre-Screening Appointment", payload: "PRE_SCREENING" }
       ]
     });
-  } else if (payload === "JOB_OPENING") {
+  } else if (payload === "PRE_SCREENING") {
     callSendAPI(sender_psid, {
-      text: `Feel free to visit our website to check out the latest job openings!\n最新の募集情報はこちらのウェブサイトでチェックしてくださいね！\nhttps://horizonjapan.softr.app/`
+      text: `To complete your pre-screening appointment, please click the link below:
+事前面談のご予約は、以下のリンクからお進みください。
+👉 https://calendar.google.com/calendar/u/0/appointments/AcZssZ1XWqZlSoUY8C4H7uB9w2Q-NU9fXJ5S7Spgmmc=
+
+If you encounter any issues, feel free to message us here. We look forward to speaking with you！
+ご不明な点がございましたら、お気軽にこちらのメッセージでお問い合わせください。
+お話しできるのを楽しみにしております！`
     });
   } else if (payload === "MSC") {
     callSendAPI(sender_psid, {
@@ -148,7 +145,7 @@ function handlePostback(sender_psid, received_postback) {
         { content_type: "text", title: "No", payload: "WORKED_CRUISE_NO" }
       ]
     });
-  } else if (payload === "WORKED_CRUISE_NO" || payload === "WORKED_CRUISE_YES") {
+  } else if (payload === "WORKED_CRUISE_YES" || payload === "WORKED_CRUISE_NO") {
     callSendAPI(sender_psid, {
       text: "🤖 Can you speak Japanese?",
       quick_replies: [
@@ -156,38 +153,14 @@ function handlePostback(sender_psid, received_postback) {
         { content_type: "text", title: "No", payload: "JAPANESE_NO" }
       ]
     });
-  } else if (payload === "JAPANESE_NO") {
-    callSendAPI(sender_psid, {
-      attachment: {
-        type: "template",
-        payload: {
-          template_type: "button",
-          text: "No problem! Here are more ways we can help:",
-          buttons: [
-            { type: "web_url", url: "https://horizonjapan.softr.app/", title: "🚀 View More Jobs" },
-            { type: "web_url", url: "https://horizonjapan.softr.app/", title: "🔗 Horizon Japan Website" },
-            { type: "postback", title: "👩‍💼 Contact Support", payload: "CONTACT_SUPPORT" }
-          ]
-        }
-      }
-    });
   } else if (payload === "JAPANESE_YES") {
     callSendAPI(sender_psid, {
-      text: "Just fill out this short form to register!👇\n簡単な登録フォームはこちらからどうぞ👇\nhttps://airtable.com/appODQ53LeZaz8bgj/pagGGwD7IdGwlVSlE/form/"
+      text: "Great! Please register here:\nこちらからご登録ください：\nhttps://airtable.com/appODQ53LeZaz8bgj/pagGGwD7IdGwlVSlE/form"
     });
-  } else if (payload === "HOW_TO_APPLY") {
+  } else if (payload === "JAPANESE_NO") {
     callSendAPI(sender_psid, {
-      text: `📝 Here's how to apply for jobs with us:
-1. Visit: https://horizonjapan.softr.app/
-2. Select the job you're interested in
-3. Fill out the application form
-📝 応募方法：
-1. サイトへアクセス：https://horizonjapan.softr.app/
-2. 応募したい仕事を選ぶ
-3. 応募フォームに記入してください`
+      text: "No worries! We have opportunities for English speakers too. Please check here:\n\nhttps://horizonjapan.softr.app/"
     });
-  } else if (payload === "CONTACT_SUPPORT") {
-    callSendAPI(sender_psid, { text: "🤖 One of our team members will be with you shortly." });
   }
 }
 
@@ -200,6 +173,7 @@ function setPersistentMenu() {
         call_to_actions: [
           { type: "postback", title: "Current Job Openings", payload: "JOB_OPENING" },
           { type: "web_url", title: "MSC Cruise Application", url: "https://airtable.com/appODQ53LeZaz8bgj/pagGGwD7IdGwlVSlE/form", webview_height_ratio: "full" },
+          { type: "web_url", title: "Pre-Screening Appointment", url: "https://calendar.google.com/calendar/u/0/appointments/AcZssZ1XWqZlSoUY8C4H7uB9w2Q-NU9fXJ5S7Spgmmc=", webview_height_ratio: "full" },
           { type: "web_url", title: "Visit Website", url: "https://horizonjapan.softr.app/", webview_height_ratio: "full" },
           { type: "postback", title: "Help", payload: "HELP" }
         ]
@@ -233,7 +207,6 @@ function checkAndSetup() {
     .catch(() => setGetStartedButton());
 }
 
-// --- Fixed immediate response ---
 app.get("/webhook", (req, res) => {
   const mode = req.query["hub.mode"];
   const token = req.query["hub.verify_token"];
@@ -253,6 +226,16 @@ app.post("/webhook", (req, res) => {
     req.body.entry.forEach(entry => {
       const webhook_event = entry.messaging[0];
       const sender_psid = webhook_event.sender.id;
+
+      if (webhook_event.pass_thread_control) {
+        threadControlledByHuman.add(sender_psid);
+        console.log(`🤝 Thread passed to another app for ${sender_psid}`);
+        return;
+      } else if (webhook_event.take_thread_control) {
+        threadControlledByHuman.delete(sender_psid);
+        console.log(`🤖 Bot regained control of thread for ${sender_psid}`);
+        return;
+      }
 
       if (webhook_event.message) {
         handleMessage(sender_psid, webhook_event.message);
