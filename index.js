@@ -195,7 +195,7 @@ function handleQuickReply(sender_psid, payload) {
     }
   }),
 
-    MSC: () => steps.MSC_YES(),
+    MSC: () => defaultReplies.msc(sender_psid),
     JOB_OPENING: () => defaultReplies.job(sender_psid),
     HOW_TO_APPLY: () => defaultReplies.apply(sender_psid),
     PRE_SCREENING: () => defaultReplies["pre-screening"](sender_psid),
