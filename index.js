@@ -116,7 +116,7 @@ If you encounter any issues, feel free to message us here. We look forward to sp
       defaultReplyFlags.set(sender_psid, Date.now());
     }
   }
-} (thread controlled by human)`);
+} (thread controlled by human)");
     return;
   }
 
