@@ -50,7 +50,7 @@ function handleMessage(sender_psid, received_message) {
   const quick_reply_payload = received_message.quick_reply?.payload;
 
   if (threadControlledByHuman.has(sender_psid)) {
-    console.log(`🤖 Skipping response for ${sender_psid} (thread controlled by human)`);
+    console.log("🤖 Skipping response for this user (thread controlled by human)");
     return;
   }
 
