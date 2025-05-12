@@ -47,9 +47,75 @@ async function callSendAPI(sender_psid, response, retryCount = 0) {
 
 function handleMessage(sender_psid, received_message) {
   const message = received_message.text?.toLowerCase() || "";
+  const quick_reply_payload = received_message.quick_reply?.payload;
 
   if (threadControlledByHuman.has(sender_psid)) {
     console.log(`🤖 Skipping response for ${sender_psid} (thread controlled by human)`);
+    return;
+  }
+
+  if (quick_reply_payload) {
+    handleQuickReply(sender_psid, quick_reply_payload);
+    return;
+  }
+
+  if (!hasHumanTimeoutExpired(sender_psid)) return;
+
+  if (message.includes("msc")) {
+    callSendAPI(sender_psid, {
+      text: "Interested in joining MSC Cruises as crew? 🚢
+MSCクルーズのクルーに興味がありますか？🌊",
+      quick_replies: [
+        { content_type: "text", title: "Yes", payload: "MSC_YES" },
+        { content_type: "text", title: "No", payload: "MSC_NO" }
+      ]
+    });
+  } else if (message.includes("apply") || message.includes("応募") || message.includes("申し込み")) {
+    callSendAPI(sender_psid, {
+      text: `📝 Here's how to apply for jobs with us:
+1. Visit: https://horizonjapan.softr.app/
+2. Select the job you're interested in
+3. Fill out the application form
+📝 応募方法：
+1. サイトへアクセス：https://horizonjapan.softr.app/
+2. 応募したい仕事を選ぶ
+3. 応募フォームに記入してください`
+    });
+  } else if (message.includes("job") || message.includes("opening") || message.includes("求人") || message.includes("募集")) {
+    callSendAPI(sender_psid, {
+      text: `💼 We currently have several job openings! View them here:
+💼 現在、さまざまな求人があります！こちらからご覧いただけます：
+➡️ https://horizonjapan.softr.app/`
+    });
+  } else if (message.includes("help")) {
+    callSendAPI(sender_psid, { text: "🆘 How can I help you?
+🆘 どのようにお手伝いできますか？" });
+  } else if (message.includes("pre-screening")) {
+    callSendAPI(sender_psid, {
+      text: `To complete your pre-screening appointment, please click the link below:
+事前面談のご予約は、以下のリンクからお進みください。
+👉 https://calendar.google.com/calendar/u/0/appointments/AcZssZ1XWqZlSoUY8C4H7uB9w2Q-NU9fXJ5S7Spgmmc=
+
+If you encounter any issues, feel free to message us here. We look forward to speaking with you!
+ご不明な点がございましたら、お気軽にこちらのメッセージでお問い合わせください。
+お話しできるのを楽しみにしております！`
+    });
+  } else {
+    const lastDefaultReply = defaultReplyFlags.get(sender_psid);
+    if (!lastDefaultReply || Date.now() - lastDefaultReply > cooldownPeriod) {
+      callSendAPI(sender_psid, {
+        text: "🤖 One of our team members will be with you shortly.",
+        quick_replies: [
+          { content_type: "text", title: "MSC Cruise Jobs", payload: "MSC" },
+          { content_type: "text", title: "Current Job Opening", payload: "JOB_OPENING" },
+          { content_type: "text", title: "How to Apply", payload: "HOW_TO_APPLY" },
+          { content_type: "text", title: "Pre-Screening Appointment", payload: "PRE_SCREENING" }
+        ]
+      });
+      defaultReplyFlags.set(sender_psid, Date.now());
+    }
+  }
+} (thread controlled by human)`);
     return;
   }
 
@@ -247,6 +313,119 @@ app.post("/webhook", (req, res) => {
     res.sendStatus(404);
   }
 });
+
+function handleQuickReply(sender_psid, payload) {
+  switch (payload) {
+    case "MSC_YES":
+      callSendAPI(sender_psid, {
+        text: "🤖 Have you ever worked on a cruise ship before?",
+        quick_replies: [
+          { content_type: "text", title: "Yes", payload: "WORKED_CRUISE_YES" },
+          { content_type: "text", title: "No", payload: "WORKED_CRUISE_NO" }
+        ]
+      });
+      break;
+
+    case "WORKED_CRUISE_YES":
+    case "WORKED_CRUISE_NO":
+      callSendAPI(sender_psid, {
+        text: "🤖 Can you speak Japanese?",
+        quick_replies: [
+          { content_type: "text", title: "Yes", payload: "JAPANESE_YES" },
+          { content_type: "text", title: "No", payload: "JAPANESE_NO" }
+        ]
+      });
+      break;
+
+    case "JAPANESE_YES":
+      callSendAPI(sender_psid, {
+        text: "Great! Please register here:
+こちらからご登録ください：
+https://airtable.com/appODQ53LeZaz8bgj/pagGGwD7IdGwlVSlE/form"
+      });
+      break;
+
+    case "JAPANESE_NO":
+      callSendAPI(sender_psid, {
+        text: "No worries! We have opportunities for English speakers too. Please check here:
+
+https://horizonjapan.softr.app/"
+      });
+      break;
+
+    case "MSC":
+      callSendAPI(sender_psid, {
+        text: "Interested in joining MSC Cruises as crew? 🚢
+MSCクルーズのクルーに興味がありますか？🌊",
+        quick_replies: [
+          { content_type: "text", title: "Yes", payload: "MSC_YES" },
+          { content_type: "text", title: "No", payload: "MSC_NO" }
+        ]
+      });
+      break;
+
+    case "JOB_OPENING":
+      callSendAPI(sender_psid, {
+        text: `💼 We currently have several job openings! View them here:
+💼 現在、さまざまな求人があります！こちらからご覧いただけます：
+➡️ https://horizonjapan.softr.app/`
+      });
+      break;
+
+    case "HOW_TO_APPLY":
+      callSendAPI(sender_psid, {
+        text: `📝 Here's how to apply for jobs with us:
+1. Visit: https://horizonjapan.softr.app/
+2. Select the job you're interested in
+3. Fill out the application form
+📝 応募方法：
+1. サイトへアクセス：https://horizonjapan.softr.app/
+2. 応募したい仕事を選ぶ
+3. 応募フォームに記入してください`
+      });
+      break;
+
+    case "PRE_SCREENING":
+      callSendAPI(sender_psid, {
+        text: `To complete your pre-screening appointment, please click the link below:
+事前面談のご予約は、以下のリンクからお進みください。
+👉 https://calendar.google.com/calendar/u/0/appointments/AcZssZ1XWqZlSoUY8C4H7uB9w2Q-NU9fXJ5S7Spgmmc=
+
+If you encounter any issues, feel free to message us here. We look forward to speaking with you!
+ご不明な点がございましたら、お気軽にこちらのメッセージでお問い合わせください。
+お話しできるのを楽しみにしております！`
+      });
+      break;
+
+    default:
+      console.log(`⚠️ Unrecognized quick reply payload: ${payload}`);
+  }
+},
+        { content_type: "text", title: "No", payload: "WORKED_CRUISE_NO" }
+      ]
+    });
+  } else if (payload === "WORKED_CRUISE_YES" || payload === "WORKED_CRUISE_NO") {
+    callSendAPI(sender_psid, {
+      text: "🤖 Can you speak Japanese?",
+      quick_replies: [
+        { content_type: "text", title: "Yes", payload: "JAPANESE_YES" },
+        { content_type: "text", title: "No", payload: "JAPANESE_NO" }
+      ]
+    });
+  } else if (payload === "JAPANESE_YES") {
+    callSendAPI(sender_psid, {
+      text: "Great! Please register here:
+こちらからご登録ください：
+https://airtable.com/appODQ53LeZaz8bgj/pagGGwD7IdGwlVSlE/form"
+    });
+  } else if (payload === "JAPANESE_NO") {
+    callSendAPI(sender_psid, {
+      text: "No worries! We have opportunities for English speakers too. Please check here:
+
+https://horizonjapan.softr.app/"
+    });
+  }
+}
 
 checkAndSetup();
 
