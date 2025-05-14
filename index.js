@@ -132,7 +132,6 @@ function handleMessage(sender_psid, received_message) {
         { content_type: "text", title: "MSC Cruise Jobs", payload: "MSC" },
         { content_type: "text", title: "Current Job Opening", payload: "JOB_OPENING" },
         { content_type: "text", title: "How to Apply", payload: "HOW_TO_APPLY" },
-        { content_type: "text", title: "Pre-Screening Appointment", payload: "PRE_SCREENING" },
       ],
     });
     defaultReplyFlags.set(sender_psid, Date.now());
