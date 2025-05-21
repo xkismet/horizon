@@ -218,7 +218,6 @@ Our team will reply soon.
         { content_type: "text", title: "MSC Cruise Jobs", payload: "MSC" },
         { content_type: "text", title: "Current Job Openings", payload: "JOB_OPENING" },
         { content_type: "text", title: "How to Apply", payload: "HOW_TO_APPLY" },
-        { content_type: "text", title: "Pre-Screening Appointment", payload: "PRE_SCREENING" },
       ],
     });
   } else if (payload === "CONTACT_SUPPORT") {
